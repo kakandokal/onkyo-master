@@ -1,0 +1,37 @@
+<UserControl x:Class="OnkyoMaster.UI.ZonePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext: a ZoneState -->
+    <StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ToggleButton Style="{StaticResource IconToggle}" Content="&#xE7E8;" IsChecked="{Binding Power}" ToolTip="Питание" />
+            <ToggleButton Grid.Column="1" Style="{StaticResource IconToggle}" Content="&#xE74F;" Margin="8,0,12,0"
+                          IsChecked="{Binding Muted}" IsEnabled="{Binding Power}" ToolTip="Без звука" />
+            <!-- The stock slider looks the same when disabled; the wrapper dims it while the zone is off. -->
+            <Border Grid.Column="2" VerticalAlignment="Center">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Power}" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Slider Minimum="0" Maximum="{Binding Volume.Maximum}" Value="{Binding Volume.Value}"
+                        SmallChange="{Binding Volume.Step}" LargeChange="2"
+                        IsEnabled="{Binding Power}" PreviewMouseWheel="Volume_MouseWheel" />
+            </Border>
+            <TextBlock Grid.Column="3" Text="{Binding Volume.Text}" FontSize="24" FontWeight="SemiBold" MinWidth="64"
+                       TextAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+        <ListBox Style="{StaticResource ChipList}" Margin="0,14,0,-6" ItemsSource="{Binding Inputs}"
+                 SelectedItem="{Binding SelectedInput}" DisplayMemberPath="Name" IsEnabled="{Binding Power}" />
+    </StackPanel>
+</UserControl>

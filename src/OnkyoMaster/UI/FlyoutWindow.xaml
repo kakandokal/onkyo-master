@@ -1,0 +1,112 @@
+<Window x:Class="OnkyoMaster.UI.FlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:OnkyoMaster.UI"
+        Title="Onkyo Master" Width="412" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
+        ShowInTaskbar="False" Topmost="True"
+        TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+        Deactivated="Window_Deactivated" PreviewKeyDown="Window_PreviewKeyDown" PreviewMouseWheel="Window_PreviewMouseWheel">
+    <!-- DataContext: the Receiver. The outer margin leaves room for the shadow. -->
+    <Grid Margin="16">
+        <Border CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.4" />
+            </Border.Effect>
+        </Border>
+        <Border CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}" BorderThickness="1">
+            <StackPanel Margin="16">
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <Ellipse Style="{StaticResource StatusDot}" ToolTip="{Binding Status}" />
+                    <TextBlock Grid.Column="1" Text="{Binding ModelName}" FontSize="16" FontWeight="SemiBold" Margin="8,0,0,0"
+                               VerticalAlignment="Center" ToolTip="{Binding Status}" />
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Content="&#xE8A7;"
+                            Margin="8,0,0,0" ToolTip="Открыть панель управления" Click="OpenMain_Click" />
+                    <!-- The status text only takes a line when something is wrong. -->
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Dim}" Text="{Binding Status}" Margin="0,6,0,0"
+                               Visibility="{Binding HasProblem, Converter={StaticResource BoolToVisibility}}" />
+                </Grid>
+
+                <StackPanel IsEnabled="{Binding IsReady}">
+                    <ui:ZonePanel DataContext="{Binding Main}" />
+
+                    <StackPanel Margin="0,16,0,0" IsEnabled="{Binding Main.Power}">
+                        <TextBlock Style="{StaticResource Dim}">
+                            <Run Text="Режим звучания:" />
+                            <Run Text="{Binding ListeningModeName, Mode=OneWay}" />
+                        </TextBlock>
+                        <ItemsControl ItemsSource="{Binding ModeButtons}" Margin="0,6,-6,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Label}" Tag="{Binding Code}" Margin="0,0,6,0" Padding="2,5,2,6"
+                                            HorizontalAlignment="Stretch" Click="Mode_Click" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="10"
+                            Visibility="{Binding HasNowPlaying, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="48" Height="48" CornerRadius="4" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                <Image Source="{Binding NetArt}" Stretch="UniformToFill" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding NetTitle}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource Dim}" Text="{Binding NetArtist}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource IconButton}" Content="&#xE892;" Tag="NTCTRDN" Click="Command_Click" ToolTip="Предыдущий" />
+                                <Button Style="{StaticResource IconButton}" Content="&#xE768;" Tag="NTCP/P" Click="Command_Click" Margin="4,0" ToolTip="Пуск / пауза" />
+                                <Button Style="{StaticResource IconButton}" Content="&#xE893;" Tag="NTCTRUP" Click="Command_Click" ToolTip="Следующий" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel x:Name="ScenesPanel" Margin="0,14,0,0">
+                        <TextBlock Style="{StaticResource Dim}" Text="Сцены" />
+                        <ItemsControl x:Name="ScenesList" Margin="0,6,0,-6">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding Name}" Tag="{Binding}" Margin="0,0,6,6" ToolTip="{Binding Summary}" Click="Scene_Click" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <UniformGrid Rows="1" Margin="0,14,-6,0">
+                        <ToggleButton Content="Zone 2" Margin="0,0,6,0" HorizontalAlignment="Stretch" IsChecked="{Binding Zone2.Power}"
+                                      Visibility="{Binding Zone2.IsAvailable, Converter={StaticResource BoolToVisibility}}" />
+                        <ToggleButton Content="Zone 3" Margin="0,0,6,0" HorizontalAlignment="Stretch" IsChecked="{Binding Zone3.Power}"
+                                      Visibility="{Binding Zone3.IsAvailable, Converter={StaticResource BoolToVisibility}}" />
+                    </UniformGrid>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,101 @@
+<UserControl x:Class="OnkyoMaster.UI.HotkeysPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <!-- One action and its key combination. DataContext: HotkeyRowView -->
+        <DataTemplate x:Key="HotkeyRow">
+            <Grid Margin="0,0,0,4" Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="210" />
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Text="занято другой программой" FontSize="12" Margin="8,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           Visibility="{Binding Failed, Converter={StaticResource BoolToVisibility}}" />
+                <TextBox Grid.Column="2" IsReadOnly="True" Text="{Binding Gesture, Mode=OneWay}" Tag="{Binding}"
+                         PreviewKeyDown="Hotkey_PreviewKeyDown" />
+                <Button Grid.Column="3" Style="{StaticResource IconButton}" Content="&#xE711;" Tag="{Binding}" HorizontalAlignment="Right"
+                        ToolTip="Убрать сочетание" Click="Clear_Click"
+                        Visibility="{Binding HasGesture, Converter={StaticResource BoolToVisibility}}" />
+                <Button Grid.Column="4" Style="{StaticResource IconButton}" Content="&#xE74D;" Tag="{Binding}" Margin="4,0,0,0"
+                        ToolTip="Удалить команду" Click="DeleteCustom_Click"
+                        Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibility}}" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="4,12,4,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE721;" FontSize="14" VerticalAlignment="Center" Margin="4,0,8,0" />
+            <TextBox x:Name="SearchBox" Grid.Column="1" ToolTip="Поиск действия по названию или сочетанию" TextChanged="Filter_Changed" />
+            <CheckBox x:Name="AssignedOnlyBox" Grid.Column="2" Content="Только назначенные" Margin="16,0,0,0" Click="Filter_Changed" />
+            <TextBlock x:Name="SummaryText" Grid.Column="3" Style="{StaticResource Dim}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Style="{StaticResource Dim}" Margin="2,0,0,10"
+                           Text="Щёлкните поле напротив действия и нажмите сочетание клавиш. Оно работает в любой программе, пока приложение запущено. Backspace очищает поле. Одно сочетание — одно действие: при повторном назначении оно переходит к новому." />
+                <TextBlock x:Name="NoteText" Margin="2,0,0,10" TextWrapping="Wrap" Visibility="Collapsed"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+
+                <Border Style="{StaticResource Card}" Padding="16,10" Margin="0,0,0,10">
+                    <CheckBox x:Name="MediaKeysBox" Click="MediaKeys_Click"
+                              Content="Клавиши громкости на клавиатуре управляют ресивером, пока он включён" />
+                </Border>
+
+                <ItemsControl x:Name="GroupsList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- DataContext: HotkeyGroupView -->
+                            <Expander Margin="0,0,0,6" HorizontalAlignment="Stretch" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                      Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Dim}" Text="{Binding Summary}" Margin="12,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource HotkeyRow}" Focusable="False" />
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Style="{StaticResource Card}" Margin="0,6,0,12">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Добавить свою команду" />
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Dim}" Text="Название" Margin="0,0,0,4" />
+                                <TextBox x:Name="CustomNameBox" Width="220" KeyDown="CustomBox_KeyDown" />
+                            </StackPanel>
+                            <StackPanel Margin="8,0,0,0">
+                                <TextBlock Style="{StaticResource Dim}" Text="Команда ISCP" Margin="0,0,0,4" />
+                                <TextBox x:Name="CustomCommandBox" Width="160" FontFamily="Consolas" KeyDown="CustomBox_KeyDown" />
+                            </StackPanel>
+                            <Button Content="Добавить" Margin="8,0,0,0" VerticalAlignment="Bottom" Click="AddCustom_Click" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Dim}" Margin="0,8,0,0"
+                                   Text="Для всего, чего нет в списке: любая команда ISCP, как на вкладке «Консоль». Команда появится в группе «Свои команды», где ей можно назначить сочетание." />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
