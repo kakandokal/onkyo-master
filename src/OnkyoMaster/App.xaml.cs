@@ -372,7 +372,7 @@ public partial class App : Application
             SavePng(flyout, Path.Combine(directory, "flyout.png"));
             flyout.Close();
 
-            var main = new MainWindow(Receiver, Settings)
+            var main = new MainWindow(Receiver, Settings, rememberSize: false)
             {
                 WindowStartupLocation = WindowStartupLocation.Manual,
                 Left = -4000,

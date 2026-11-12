@@ -80,6 +80,12 @@ public sealed class AppSettings
     /// <summary>Closing the window keeps the app running in the tray; when off, closing it exits the app.</summary>
     public bool CloseToTray { get; set; } = true;
 
+    /// <summary>Size of the control panel window as the user left it, in WPF units; zero until it has been resized.</summary>
+    public double WindowWidth { get; set; }
+
+    public double WindowHeight { get; set; }
+    public bool WindowMaximized { get; set; }
+
     /// <summary>The keyboard's volume keys control the receiver while it is on.</summary>
     public bool MediaKeys { get; set; }
 

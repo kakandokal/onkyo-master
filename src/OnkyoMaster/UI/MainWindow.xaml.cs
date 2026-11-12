@@ -5,6 +5,7 @@ using System.Net;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using OnkyoMaster.Model;
 using OnkyoMaster.Protocol;
 using OnkyoMaster.Services;
@@ -22,13 +23,16 @@ public partial class MainWindow : Window
     // True while controls are being filled in, including the XAML load itself, so that
     // change handlers don't mistake that for the user editing a setting.
     private bool _loading = true;
+    private readonly DispatcherTimer _sizeTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
-    public MainWindow(Receiver receiver, AppSettings settings)
+    /// <param name="rememberSize">Open at the size the user left and save changes to it; off when rendering to an image.</param>
+    public MainWindow(Receiver receiver, AppSettings settings, bool rememberSize = true)
     {
         InitializeComponent();
         _receiver = receiver;
         _settings = settings;
         DataContext = receiver;
+        if (rememberSize) RememberSize();
         ScenesList.ItemsSource = settings.Scenes;
         HotkeysTab.Attach(receiver, settings);
 
@@ -45,8 +49,63 @@ public partial class MainWindow : Window
 
     public void SelectTab(int index) => Tabs.SelectedIndex = index;
 
+    private void RememberSize()
+    {
+        if (_settings.WindowWidth >= MinWidth && _settings.WindowHeight >= MinHeight)
+        {
+            // A size saved on a bigger screen still has to fit this one.
+            var area = SystemParameters.WorkArea;
+            Width = Math.Min(_settings.WindowWidth, area.Width);
+            Height = Math.Min(_settings.WindowHeight, area.Height);
+        }
+        if (_settings.WindowMaximized) WindowState = WindowState.Maximized;
+
+        // Resizing by the border fires for every pixel; save once it has settled.
+        _sizeTimer.Tick += (_, _) => SaveSize();
+        SizeChanged += (_, _) => SaveSizeSoon();
+        StateChanged += (_, _) => SaveSizeSoon();
+    }
+
+    private void SaveSizeSoon()
+    {
+        // Before the window is loaded these are its own first layout passes, not the user.
+        if (!IsLoaded) return;
+        _sizeTimer.Stop();
+        _sizeTimer.Start();
+    }
+
+    private void SaveSize()
+    {
+        if (!_sizeTimer.IsEnabled) return;
+        _sizeTimer.Stop();
+        if (WindowState == WindowState.Minimized) return;
+
+        var maximized = WindowState == WindowState.Maximized;
+        var width = _settings.WindowWidth;
+        var height = _settings.WindowHeight;
+        if (!maximized)
+        {
+            width = Math.Round(ActualWidth);
+            height = Math.Round(ActualHeight);
+        }
+        else if (!RestoreBounds.IsEmpty)
+        {
+            // While maximized, keep the size the window goes back to.
+            width = Math.Round(RestoreBounds.Width);
+            height = Math.Round(RestoreBounds.Height);
+        }
+        if (width == _settings.WindowWidth && height == _settings.WindowHeight && maximized == _settings.WindowMaximized) return;
+
+        _settings.WindowWidth = width;
+        _settings.WindowHeight = height;
+        _settings.WindowMaximized = maximized;
+        _settings.Save();
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
+        // A resize just before closing may still be waiting for the timer.
+        SaveSize();
         if (!AllowClose && _settings.CloseToTray)
         {
             e.Cancel = true;
