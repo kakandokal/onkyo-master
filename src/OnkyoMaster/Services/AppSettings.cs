@@ -87,6 +87,12 @@ public sealed class AppSettings
     public List<string> FlyoutItems { get; set; } = FlyoutLayout.Default;
 
     /// <summary>
+    /// The panel parts that existed when these settings were last saved. A part that a newer version adds
+    /// and shows by default is switched on once; one the user has switched off stays off.
+    /// </summary>
+    public List<string> FlyoutItemsKnown { get; set; } = FlyoutLayout.FirstVersion;
+
+    /// <summary>
     /// Global hotkeys: command → key combination. The command is anything App.Execute understands
     /// ("vol-up", "input:05", "raw:NTCPLAY"), so every action can have one.
     /// </summary>
@@ -128,7 +134,9 @@ public sealed class AppSettings
         {
             // A damaged settings file should not stop the app from starting.
         }
-        return new AppSettings();
+        var fresh = new AppSettings();
+        fresh.Migrate();
+        return fresh;
     }
 
     public void Save()
@@ -167,5 +175,11 @@ public sealed class AppSettings
         {
             Hotkeys.Remove(command);
         }
+
+        // Parts this version adds and shows by default; the result is kept in the panel's own order.
+        var added = FlyoutLayout.Default.Where(item => !FlyoutItemsKnown.Contains(item)).ToList();
+        var shown = FlyoutItems;
+        FlyoutItems = FlyoutLayout.All.Select(o => o.Code).Where(item => shown.Contains(item) || added.Contains(item)).ToList();
+        FlyoutItemsKnown = FlyoutLayout.All.Select(o => o.Code).ToList();
     }
 }

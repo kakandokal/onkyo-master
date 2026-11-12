@@ -9,6 +9,7 @@ namespace OnkyoMaster.Services;
 public static class FlyoutLayout
 {
     public const string Inputs = "inputs";
+    public const string Signal = "signal";
     public const string Mode = "mode";
     public const string LateNight = "late-night";
     public const string Center = "center";
@@ -21,6 +22,7 @@ public static class FlyoutLayout
     public static IReadOnlyList<Option> All { get; } =
     [
         new(Inputs, "Входы"),
+        new(Signal, "Сигнал: вход и выход"),
         new(Mode, "Режим звучания"),
         new(LateNight, "Ночной режим"),
         new(Center, "Центральный канал"),
@@ -31,5 +33,11 @@ public static class FlyoutLayout
         new(Zones, "Зоны 2 и 3"),
     ];
 
-    public static List<string> Default => [Mode, LateNight, Center, Vocal, NowPlaying, Scenes];
+    public static List<string> Default => [Signal, Mode, LateNight, Center, Vocal, NowPlaying, Scenes];
+
+    /// <summary>
+    /// The parts the first version with a configurable panel had. Settings saved by it do not say which
+    /// parts they knew about, and that is needed to switch on a part added later (see AppSettings.Migrate).
+    /// </summary>
+    public static List<string> FirstVersion => [Inputs, Mode, LateNight, Center, Vocal, Subwoofer, NowPlaying, Scenes, Zones];
 }

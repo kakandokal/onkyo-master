@@ -56,6 +56,27 @@
                 <StackPanel IsEnabled="{Binding IsReady}">
                     <ui:ZonePanel x:Name="MainZone" DataContext="{Binding Main}" />
 
+                    <!-- What comes in and what goes out; meaningless while the receiver is in standby. -->
+                    <StackPanel x:Name="SignalPanel" Margin="0,12,0,0">
+                        <Grid Visibility="{Binding Main.Power, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition />
+                                <RowDefinition />
+                                <RowDefinition />
+                            </Grid.RowDefinitions>
+                            <TextBlock Style="{StaticResource Dim}" Text="Вход" VerticalAlignment="Top" Margin="0,1,0,0" />
+                            <TextBlock Grid.Column="1" Text="{Binding Main.InputName}" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Grid.Row="1" Style="{StaticResource Dim}" Text="Звук" VerticalAlignment="Top" Margin="0,4,0,0" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AudioInfo}" FontSize="13" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            <TextBlock Grid.Row="2" Style="{StaticResource Dim}" Text="Видео" VerticalAlignment="Top" Margin="0,4,0,0" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding VideoInfo}" FontSize="13" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        </Grid>
+                    </StackPanel>
+
                     <StackPanel x:Name="ModePanel" Margin="0,16,0,0" IsEnabled="{Binding Main.Power}">
                         <TextBlock Style="{StaticResource Dim}">
                             <Run Text="Режим звучания:" />

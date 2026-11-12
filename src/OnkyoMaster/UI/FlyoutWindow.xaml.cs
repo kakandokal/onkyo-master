@@ -41,6 +41,7 @@ public partial class FlyoutWindow : Window
         static void Show(UIElement element, bool visible) => element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
 
         MainZone.ShowInputs = Has(FlyoutLayout.Inputs);
+        Show(SignalPanel, Has(FlyoutLayout.Signal));
         Show(ModePanel, Has(FlyoutLayout.Mode));
 
         var vocal = Has(FlyoutLayout.Vocal) && _receiver.HasVocal;
