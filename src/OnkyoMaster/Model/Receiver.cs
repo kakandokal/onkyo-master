@@ -49,6 +49,7 @@ public sealed class Receiver : ObservableObject, IDisposable
     private readonly EiscpClient _client = new();
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private readonly Dictionary<string, Action<string>> _handlers;
+    private readonly Dictionary<string, Action> _rejections;
     private readonly HttpClient _http;
     private readonly DispatcherTimer _signalTimer;
     private readonly DispatcherTimer _artTimer;
@@ -85,6 +86,7 @@ public sealed class Receiver : ObservableObject, IDisposable
     {
         _settings = settings;
         _http = CreateHttpClient();
+        VolumeScale.Decibels = settings.VolumeInDecibels;
 
         Main = new ZoneState(this, "Main", 1, "PWR", "MVL", "AMT", "SLI");
         Zone2 = new ZoneState(this, "Zone 2", 2, "ZPW", "ZVL", "ZMT", "SLZ");
@@ -97,8 +99,10 @@ public sealed class Receiver : ObservableObject, IDisposable
             new("OFF", "Выключен", "Выкл"), new("0F", "15 минут", "15"), new("1E", "30 минут", "30"),
             new("2D", "45 минут", "45"), new("3C", "60 минут", "60"), new("5A", "90 минут", "90"),
         ], Send);
-        LateNight = new ChoiceControl("LTN",
-            [new("00", "Выключен", "Выкл"), new("01", "Слабый"), new("02", "Сильный"), new("03", "Авто")], Send);
+        // The protocol defines two more values. The TX-RZ50 answers "02" (strong compression on older
+        // models) with N/A. "03" is a state of its own there, "auto": a Dolby TrueHD track's metadata
+        // decides. It is not offered for selection; LateNightNote says so if the receiver is in it.
+        LateNight = new ChoiceControl("LTN", [new("00", "Выключен", "Выкл"), new("01", "Включён", "Вкл")], Send);
         HdmiOut = new ChoiceControl("HDO",
             [new("01", "MAIN"), new("02", "SUB"), new("03", "MAIN + SUB"), new("00", "Выключен", "Выкл")], Send);
         MusicOptimizer = new ToggleControl("MOT", Send);
@@ -107,6 +111,11 @@ public sealed class Receiver : ObservableObject, IDisposable
         Treble = new LevelControl("Высокие частоты", "TFRT", -10, 10, 1, v => "TFRT" + Signed(v, 1), FormatDb, Send);
         CenterLevel = new LevelControl("Центральный канал", "CTL", -12, 12, 0.5, v => "CTL" + Signed(v * 2, 2), FormatDb, Send);
         SubwooferLevel = new LevelControl("Сабвуфер", "SWL", -15, 12, 0.5, v => "SWL" + Signed(v * 2, 2), FormatDb, Send);
+        // "Vocal/Dialog" in the receiver's description. The receiver answers N/A to a change whenever
+        // the enhancer cannot work, for one when there is no input signal.
+        Vocal = new LevelControl("Голос (Vocal Enhancer)", "VOC", 0, 5, 1,
+            v => "VOC" + ((int)Math.Round(v)).ToString("00", CultureInfo.InvariantCulture),
+            v => v == 0 ? "Выкл" : v.ToString("0", CultureInfo.InvariantCulture), Send);
 
         for (var i = 0; i < 10; i++) NetList.Add(new NetListLine(i));
 
@@ -121,13 +130,21 @@ public sealed class Receiver : ObservableObject, IDisposable
             },
             ["DIM"] = Dimmer.Apply,
             ["SLP"] = Sleep.Apply,
-            ["LTN"] = LateNight.Apply,
+            ["LTN"] = code =>
+            {
+                LateNight.Apply(code);
+                Raise(nameof(LateNightNote));
+            },
             ["HDO"] = HdmiOut.Apply,
             ["MOT"] = MusicOptimizer.Apply,
             ["RAS"] = CinemaFilter.Apply,
             ["TFR"] = ApplyTone,
             ["CTL"] = arg => ApplyHalfSteps(CenterLevel, arg),
             ["SWL"] = arg => ApplyHalfSteps(SubwooferLevel, arg),
+            ["VOC"] = arg =>
+            {
+                if (int.TryParse(arg, NumberStyles.Integer, CultureInfo.InvariantCulture, out var level)) Vocal.ApplyFromDevice(level);
+            },
             ["IFA"] = ApplyAudioInfo,
             ["IFV"] = ApplyVideoInfo,
             ["TUN"] = arg =>
@@ -153,6 +170,27 @@ public sealed class Receiver : ObservableObject, IDisposable
             ["NJA"] = ApplyArt,
             ["NLT"] = arg => NetListTitle = arg.Length > 22 ? arg[22..].Trim() : "",
             ["NLS"] = ApplyNetList,
+        };
+
+        // "N/A" to a change means the receiver kept its old value; without this the control would
+        // go on showing the value the user asked for.
+        _rejections = new Dictionary<string, Action>
+        {
+            ["LMD"] = ListeningMode.Revert,
+            ["DIM"] = Dimmer.Revert,
+            ["SLP"] = Sleep.Revert,
+            ["LTN"] = LateNight.Revert,
+            ["HDO"] = HdmiOut.Revert,
+            ["MOT"] = MusicOptimizer.Revert,
+            ["RAS"] = CinemaFilter.Revert,
+            ["TFR"] = () =>
+            {
+                Bass.Revert();
+                Treble.Revert();
+            },
+            ["CTL"] = CenterLevel.Revert,
+            ["SWL"] = SubwooferLevel.Revert,
+            ["VOC"] = Vocal.Revert,
         };
 
         _signalTimer = OneShot(1000, () =>
@@ -197,6 +235,10 @@ public sealed class Receiver : ObservableObject, IDisposable
     public ChoiceControl Dimmer { get; }
     public ChoiceControl Sleep { get; }
     public ChoiceControl LateNight { get; }
+
+    /// <summary>Names the Late Night state when it is one the switch does not offer; empty otherwise.</summary>
+    public string LateNightNote => LateNight.Value == "03" ? "сейчас «Авто»: решает дорожка Dolby TrueHD" : "";
+
     public ChoiceControl HdmiOut { get; }
     public ToggleControl MusicOptimizer { get; }
     public ToggleControl CinemaFilter { get; }
@@ -204,6 +246,11 @@ public sealed class Receiver : ObservableObject, IDisposable
     public LevelControl Treble { get; }
     public LevelControl CenterLevel { get; }
     public LevelControl SubwooferLevel { get; }
+
+    /// <summary>Vocal enhancer level, 0 (off) to 5; only on models that have it, see <see cref="HasVocal"/>.</summary>
+    public LevelControl Vocal { get; }
+
+    public bool HasVocal => _info?.HasControl("Vocal/Dialog") == true;
 
     /// <summary>The listening-mode buttons this model has (Movie/TV, Music, Game, THX); Code is the LMD parameter.</summary>
     public ObservableCollection<Option> ModeButtons { get; } = [];
@@ -338,7 +385,9 @@ public sealed class Receiver : ObservableObject, IDisposable
     /// <summary>Re-applies settings that affect the model (volume limit).</summary>
     public void ApplySettings()
     {
+        VolumeScale.Decibels = _settings.VolumeInDecibels;
         if (_info is not null) ConfigureZones(_info);
+        foreach (var zone in new[] { Main, Zone2, Zone3 }) zone.RefreshVolumeText();
     }
 
     // ---- actions ----------------------------------------------------------------------------
@@ -482,6 +531,8 @@ public sealed class Receiver : ObservableObject, IDisposable
         foreach (var query in EssentialQueries) Query(query);
         if (_info is not null && includeInfo) Query("NRIQSTN");
         foreach (var query in DetailQueries) Query(query);
+        // Asked only where the description lists it: an unknown query costs a full reply timeout.
+        if (HasVocal) Query("VOCQSTN");
     }
 
     // ---- incoming messages ------------------------------------------------------------------
@@ -497,7 +548,11 @@ public sealed class Receiver : ObservableObject, IDisposable
             ApplyInfo(arg, cache: true);
             return;
         }
-        if (arg == "N/A") return;
+        if (arg == "N/A")
+        {
+            if (_rejections.TryGetValue(command, out var revert)) revert();
+            return;
+        }
 
         var wasOn = Main.DevicePower;
         if (Main.Handle(command, arg))
@@ -540,6 +595,7 @@ public sealed class Receiver : ObservableObject, IDisposable
         if (info.Controls.TryGetValue("Treble", out var treble)) SetRange(Treble, treble);
         if (info.Controls.TryGetValue("Center Level", out var center)) SetRange(CenterLevel, center);
         if (info.Controls.TryGetValue("Subwoofer Level", out var sub)) SetRange(SubwooferLevel, sub);
+        if (info.Controls.TryGetValue("Vocal/Dialog", out var vocal)) SetRange(Vocal, vocal);
 
         Replace(ModeButtons, info.Controls.Values
             .Where(c => c.Enabled && c.Code is { Length: > 0 } && c.Id.StartsWith("LMD ", StringComparison.Ordinal))
@@ -550,6 +606,7 @@ public sealed class Receiver : ObservableObject, IDisposable
             p.Name.Length > 0 ? p.Name : (p.Frequency / 1000.0).ToString("0.00", CultureInfo.InvariantCulture))));
 
         Raise(nameof(Info));
+        Raise(nameof(HasVocal));
         Raise(nameof(ModelName));
         Raise(nameof(IsReady));
 

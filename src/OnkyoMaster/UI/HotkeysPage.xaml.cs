@@ -78,6 +78,8 @@ public partial class HotkeysPage : UserControl
         _receiver = receiver;
         _settings = settings;
         MediaKeysBox.IsChecked = settings.MediaKeys;
+        App.Current.MediaKeysRefusedChanged += ShowMediaKeysNote;
+        ShowMediaKeysNote();
 
         // Inputs, services and presets come with the receiver's description; scenes and custom commands are the user's.
         receiver.PropertyChanged += (_, e) =>
@@ -190,6 +192,9 @@ public partial class HotkeysPage : UserControl
     {
         if (_settings is not null) ApplyFilter();
     }
+
+    private void ShowMediaKeysNote() =>
+        MediaKeysNote.Visibility = App.Current.MediaKeysRefused ? Visibility.Visible : Visibility.Collapsed;
 
     private void MediaKeys_Click(object sender, RoutedEventArgs e)
     {

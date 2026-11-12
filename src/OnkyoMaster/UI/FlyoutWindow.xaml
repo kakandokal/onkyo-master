@@ -7,6 +7,21 @@
         ShowInTaskbar="False" Topmost="True"
         TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         Deactivated="Window_Deactivated" PreviewKeyDown="Window_PreviewKeyDown" PreviewMouseWheel="Window_PreviewMouseWheel">
+    <Window.Resources>
+        <!-- A LevelControl as a slider with its value; the caption sits beside it in the row. -->
+        <DataTemplate x:Key="QuickLevel">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="60" />
+                </Grid.ColumnDefinitions>
+                <Slider VerticalAlignment="Center" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Value="{Binding Value}"
+                        SmallChange="{Binding Step}" LargeChange="{Binding Step}" ui:SliderPointer.Follow="True" />
+                <TextBlock Grid.Column="1" Text="{Binding Text}" TextAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
     <!-- DataContext: the Receiver. The outer margin leaves room for the shadow. -->
     <Grid Margin="16">
         <Border CornerRadius="10" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
@@ -37,10 +52,11 @@
                                Visibility="{Binding HasProblem, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
 
+                <!-- Everything below the volume row is optional; FlyoutWindow.ApplyLayout shows what the settings ask for. -->
                 <StackPanel IsEnabled="{Binding IsReady}">
-                    <ui:ZonePanel DataContext="{Binding Main}" />
+                    <ui:ZonePanel x:Name="MainZone" DataContext="{Binding Main}" />
 
-                    <StackPanel Margin="0,16,0,0" IsEnabled="{Binding Main.Power}">
+                    <StackPanel x:Name="ModePanel" Margin="0,16,0,0" IsEnabled="{Binding Main.Power}">
                         <TextBlock Style="{StaticResource Dim}">
                             <Run Text="Режим звучания:" />
                             <Run Text="{Binding ListeningModeName, Mode=OneWay}" />
@@ -60,6 +76,43 @@
                         </ItemsControl>
                     </StackPanel>
 
+                    <StackPanel x:Name="SoundPanel" Margin="0,12,0,0" IsEnabled="{Binding Main.Power}">
+                        <Grid x:Name="LateNightRow" Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Ночной режим" VerticalAlignment="Center" />
+                            <ListBox Grid.Column="1" Style="{StaticResource Segmented}" ItemsSource="{Binding LateNight.Options}"
+                                     DisplayMemberPath="ShortLabel" SelectedValuePath="Code" SelectedValue="{Binding LateNight.Value}" />
+                        </Grid>
+                        <Grid x:Name="CenterRow" Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Центр" VerticalAlignment="Center" />
+                            <ContentControl Grid.Column="1" Content="{Binding CenterLevel}" ContentTemplate="{StaticResource QuickLevel}" Focusable="False" />
+                        </Grid>
+                        <Grid x:Name="VocalRow" Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Голос" VerticalAlignment="Center" />
+                            <ContentControl Grid.Column="1" Content="{Binding Vocal}" ContentTemplate="{StaticResource QuickLevel}" Focusable="False" />
+                        </Grid>
+                        <Grid x:Name="SubwooferRow" Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="112" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Сабвуфер" VerticalAlignment="Center" />
+                            <ContentControl Grid.Column="1" Content="{Binding SubwooferLevel}" ContentTemplate="{StaticResource QuickLevel}" Focusable="False" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="NowPlayingPanel">
                     <Border Style="{StaticResource Card}" Margin="0,14,0,0" Padding="10"
                             Visibility="{Binding HasNowPlaying, Converter={StaticResource BoolToVisibility}}">
                         <Grid>
@@ -82,6 +135,7 @@
                             </StackPanel>
                         </Grid>
                     </Border>
+                    </StackPanel>
 
                     <StackPanel x:Name="ScenesPanel" Margin="0,14,0,0">
                         <TextBlock Style="{StaticResource Dim}" Text="Сцены" />
@@ -99,7 +153,7 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <UniformGrid Rows="1" Margin="0,14,-6,0">
+                    <UniformGrid x:Name="ZonesPanel" Rows="1" Margin="0,14,-6,0">
                         <ToggleButton Content="Zone 2" Margin="0,0,6,0" HorizontalAlignment="Stretch" IsChecked="{Binding Zone2.Power}"
                                       Visibility="{Binding Zone2.IsAvailable, Converter={StaticResource BoolToVisibility}}" />
                         <ToggleButton Content="Zone 3" Margin="0,0,6,0" HorizontalAlignment="Stretch" IsChecked="{Binding Zone3.Power}"

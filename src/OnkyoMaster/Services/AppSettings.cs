@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using OnkyoMaster.Model;
 
 namespace OnkyoMaster.Services;
 
@@ -31,7 +32,7 @@ public sealed class Scene
     public string Summary => string.Join(" · ", new[]
     {
         InputName,
-        Volume is { } v ? $"громкость {v:0.#}" : "",
+        Volume is { } v ? "громкость " + VolumeScale.Format(v, halfSteps: v != Math.Floor(v)) : "",
         ListeningModeName,
     }.Where(s => s.Length > 0));
 }
@@ -64,8 +65,14 @@ public sealed class AppSettings
     /// </summary>
     public string NetworkInterface { get; set; } = "auto";
 
-    /// <summary>Upper limit for volume set from this app, in the receiver's display units.</summary>
+    /// <summary>Upper limit for volume set from this app, on the receiver's absolute scale.</summary>
     public double MaxVolume { get; set; } = 70;
+
+    /// <summary>
+    /// Show volume in decibels (0 dB = absolute 82), as the receiver does with "Volume Display: Relative".
+    /// Only the way levels are written out changes; they are stored and sent as absolute values.
+    /// </summary>
+    public bool VolumeInDecibels { get; set; }
 
     public double VolumeStep { get; set; } = 1;
     public bool ShowOsd { get; set; } = true;
@@ -75,6 +82,9 @@ public sealed class AppSettings
 
     /// <summary>The keyboard's volume keys control the receiver while it is on.</summary>
     public bool MediaKeys { get; set; }
+
+    /// <summary>Which optional parts the quick panel shows; ids from <see cref="FlyoutLayout"/>.</summary>
+    public List<string> FlyoutItems { get; set; } = FlyoutLayout.Default;
 
     /// <summary>
     /// Global hotkeys: command → key combination. The command is anything App.Execute understands

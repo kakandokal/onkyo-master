@@ -13,9 +13,17 @@ public sealed class HotkeyManager : IDisposable
     private const int WmHotkey = 0x0312;
     private const uint ModAlt = 1, ModControl = 2, ModShift = 4, ModWin = 8, ModNoRepeat = 0x4000;
 
+    /// <summary>
+    /// A held hotkey fires no more often than this. The keyboard repeats about 30 times a second,
+    /// which for a volume key would mean 30 steps a second.
+    /// </summary>
+    private const int RepeatIntervalMs = 120;
+
     private readonly HwndSource _source;
     private readonly Dictionary<int, (string Group, Action Action)> _registered = [];
     private int _nextId = 1;
+    private int _lastFiredId;
+    private long _lastFiredAt;
 
     public HotkeyManager()
     {
@@ -147,7 +155,14 @@ public sealed class HotkeyManager : IDisposable
     {
         if (msg == WmHotkey && _registered.TryGetValue(wParam.ToInt32(), out var entry))
         {
-            entry.Action();
+            var id = wParam.ToInt32();
+            var now = Environment.TickCount64;
+            if (id != _lastFiredId || now - _lastFiredAt >= RepeatIntervalMs)
+            {
+                _lastFiredId = id;
+                _lastFiredAt = now;
+                entry.Action();
+            }
             handled = true;
         }
         return IntPtr.Zero;

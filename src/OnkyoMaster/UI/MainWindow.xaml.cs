@@ -14,6 +14,9 @@ namespace OnkyoMaster.UI;
 /// <summary>The full control panel. Closing it only hides it; the app keeps running in the tray.</summary>
 public partial class MainWindow : Window
 {
+    private const string ScaleAbsolute = "abs";
+    private const string ScaleDecibels = "db";
+
     private readonly Receiver _receiver;
     private readonly AppSettings _settings;
     // True while controls are being filled in, including the XAML load itself, so that
@@ -128,14 +131,26 @@ public partial class MainWindow : Window
         AutoStartBox.IsChecked = AutoStart.IsEnabled;
         CloseToTrayBox.IsChecked = _settings.CloseToTray;
         OsdBox.IsChecked = _settings.ShowOsd;
+        ScaleBox.ItemsSource = new[] { new Option(ScaleAbsolute, "0–100"), new Option(ScaleDecibels, "дБ") };
+        ScaleBox.SelectedValue = _settings.VolumeInDecibels ? ScaleDecibels : ScaleAbsolute;
         MaxVolumeSlider.Value = _settings.MaxVolume;
-        MaxVolumeText.Text = _settings.MaxVolume.ToString("0");
+        ShowMaxVolume();
         StepBox.ItemsSource = new[] { 0.5, 1.0, 2.0, 3.0 };
         StepBox.SelectedItem = _settings.VolumeStep;
         PowerOnBox.IsChecked = _settings.PowerOnWithPc;
         StandbyBox.IsChecked = _settings.StandbyWithPc;
+        FlyoutItemsBox.ItemsSource = FlyoutLayout.All;
+        foreach (var item in FlyoutLayout.All.Where(i => _settings.FlyoutItems.Contains(i.Code))) FlyoutItemsBox.SelectedItems.Add(item);
         LoadPcInputs();
         _loading = false;
+    }
+
+    private void FlyoutItems_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        // Kept in the panel's own order, whatever order they were picked in.
+        _settings.FlyoutItems = FlyoutLayout.All.Where(i => FlyoutItemsBox.SelectedItems.Contains(i)).Select(i => i.Code).ToList();
+        App.Current.ApplySettings();
     }
 
     private void LoadInterfaces()
@@ -234,8 +249,20 @@ public partial class MainWindow : Window
     {
         if (_loading) return;
         _settings.MaxVolume = Math.Round(e.NewValue);
-        MaxVolumeText.Text = _settings.MaxVolume.ToString("0");
+        ShowMaxVolume();
         App.Current.ApplySettings();
+    }
+
+    private void ShowMaxVolume() => MaxVolumeText.Text = VolumeScale.Format(_settings.MaxVolume, halfSteps: false);
+
+    private void Scale_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || ScaleBox.SelectedValue is not string scale) return;
+        _settings.VolumeInDecibels = scale == ScaleDecibels;
+        App.Current.ApplySettings();
+        ShowMaxVolume();
+        // Scene summaries mention a volume level and do not notify on their own.
+        ScenesList.Items.Refresh();
     }
 
     private void Step_Changed(object sender, SelectionChangedEventArgs e)

@@ -12,20 +12,47 @@ namespace OnkyoMaster.UI;
 public partial class FlyoutWindow : Window
 {
     private readonly Receiver _receiver;
+    private readonly AppSettings _settings;
     private long _hiddenAt;
 
     public FlyoutWindow(Receiver receiver, AppSettings settings)
     {
         InitializeComponent();
         _receiver = receiver;
+        _settings = settings;
         DataContext = receiver;
         ScenesList.ItemsSource = settings.Scenes;
-        settings.Scenes.CollectionChanged += (_, _) => UpdateScenesVisibility();
-        UpdateScenesVisibility();
+        settings.Scenes.CollectionChanged += (_, _) => ApplyLayout();
+        receiver.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(Receiver.HasVocal)) ApplyLayout();
+        };
+        ApplyLayout();
         SizeChanged += (_, _) => PlaceNearTray();
+    }
 
-        void UpdateScenesVisibility() =>
-            ScenesPanel.Visibility = settings.Scenes.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>
+    /// Shows the parts chosen in the settings (see <see cref="FlyoutLayout"/>), as far as this receiver
+    /// has them. Power, volume and mute are always there.
+    /// </summary>
+    private void ApplyLayout()
+    {
+        bool Has(string item) => _settings.FlyoutItems.Contains(item);
+        static void Show(UIElement element, bool visible) => element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+
+        MainZone.ShowInputs = Has(FlyoutLayout.Inputs);
+        Show(ModePanel, Has(FlyoutLayout.Mode));
+
+        var vocal = Has(FlyoutLayout.Vocal) && _receiver.HasVocal;
+        Show(LateNightRow, Has(FlyoutLayout.LateNight));
+        Show(CenterRow, Has(FlyoutLayout.Center));
+        Show(VocalRow, vocal);
+        Show(SubwooferRow, Has(FlyoutLayout.Subwoofer));
+        Show(SoundPanel, Has(FlyoutLayout.LateNight) || Has(FlyoutLayout.Center) || vocal || Has(FlyoutLayout.Subwoofer));
+
+        Show(NowPlayingPanel, Has(FlyoutLayout.NowPlaying));
+        Show(ScenesPanel, Has(FlyoutLayout.Scenes) && _settings.Scenes.Count > 0);
+        Show(ZonesPanel, Has(FlyoutLayout.Zones));
     }
 
     /// <summary>Keeps the panel open when it loses focus; used when rendering it to an image.</summary>
@@ -42,6 +69,10 @@ public partial class FlyoutWindow : Window
         // Clicking the tray icon first deactivates the open panel (which hides it) and then arrives here;
         // without this check that click would reopen it.
         if (Environment.TickCount64 - _hiddenAt < 300) return;
+        // The settings may have changed since the last time: which parts to show, and the scale
+        // of the volume level that scene tooltips mention.
+        ApplyLayout();
+        ScenesList.Items.Refresh();
         Show();
         PlaceNearTray();
         Activate();

@@ -55,6 +55,9 @@ public static class HotkeyCatalog
                 new("Центральный канал −", "center-down"),
                 new("Сабвуфер +", "sub-up"),
                 new("Сабвуфер −", "sub-down"),
+                .. receiver.HasVocal
+                    ? new HotkeyAction[] { new("Голос (Vocal Enhancer) +", "vocal-up"), new("Голос (Vocal Enhancer) −", "vocal-down") }
+                    : [],
                 new("Music Optimizer: включить / выключить", "music-optimizer"),
                 new("Cinema Filter: включить / выключить", "cinema-filter"),
                 .. Choice("Late Night", "late-night", receiver.LateNight),
@@ -88,6 +91,7 @@ public static class HotkeyCatalog
             new("Предыдущий трек", "raw:NTCTRDN"),
             new("Повтор", "raw:NTCREPEAT"),
             new("Случайный порядок", "raw:NTCRANDOM"),
+            new("MODE: картинка с видеовхода вместо экрана воспроизведения и обратно", "raw:NTCMODE"),
             new("Меню источника: вверх", "raw:NTCUP"),
             new("Меню источника: вниз", "raw:NTCDOWN"),
             new("Меню источника: выбрать", "raw:NTCSELECT"),

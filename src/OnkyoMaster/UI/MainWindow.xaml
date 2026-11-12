@@ -17,7 +17,8 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding Title}" VerticalAlignment="Center" />
                 <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
-                        Value="{Binding Value}" SmallChange="{Binding Step}" LargeChange="{Binding Step}" />
+                        Value="{Binding Value}" SmallChange="{Binding Step}" LargeChange="{Binding Step}"
+                        ui:SliderPointer.Follow="True" />
                 <TextBlock Grid.Column="2" Text="{Binding Text}" TextAlignment="Right" VerticalAlignment="Center" />
             </Grid>
         </DataTemplate>
@@ -169,14 +170,25 @@
                         <Border Style="{StaticResource Card}" IsEnabled="{Binding Main.Power}">
                             <StackPanel>
                                 <TextBlock Style="{StaticResource CardTitle}" Text="Обработка" />
-                                <Grid>
+                                <ContentControl Content="{Binding Vocal}" ContentTemplate="{StaticResource LevelRow}" Focusable="False" Margin="0,0,0,6"
+                                                Visibility="{Binding HasVocal, Converter={StaticResource BoolToVisibility}}"
+                                                ToolTip="Подчёркивает голоса. Без звукового сигнала и в некоторых режимах ресивер изменение не принимает — тогда регулятор возвращается на место." />
+                                <Grid Background="Transparent" HorizontalAlignment="Left" ToolTipService.ShowDuration="30000">
+                                    <Grid.ToolTip>
+                                        <TextBlock MaxWidth="360" TextWrapping="Wrap"
+                                                   Text="Сжимает динамический диапазон: тихое слышнее, громкое тише. Действует только на дорожки Dolby и DTS." />
+                                    </Grid.ToolTip>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Style="{StaticResource Label}" Text="Late Night (ночной режим)" />
                                     <ListBox Grid.Column="1" Style="{StaticResource Segmented}" ItemsSource="{Binding LateNight.Options}"
                                              DisplayMemberPath="ShortLabel" SelectedValuePath="Code" SelectedValue="{Binding LateNight.Value}" />
+                                    <!-- Empty unless the receiver is in a state the switch does not offer. -->
+                                    <TextBlock Grid.Column="2" Style="{StaticResource Dim}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                               Text="{Binding LateNightNote}" />
                                 </Grid>
                                 <CheckBox Margin="0,10,0,0" Content="Music Optimizer — восстановление сжатого звука" IsChecked="{Binding MusicOptimizer.Value}" />
                                 <CheckBox Margin="0,4,0,0" Content="Cinema Filter — смягчение резких высоких в фильмах" IsChecked="{Binding CinemaFilter.Value}" />
@@ -300,6 +312,8 @@
                                         <Button Style="{StaticResource IconButton}" Content="&#xE893;" Tag="NTCTRUP" Click="Command_Click" Margin="4,0,0,0" ToolTip="Следующий" />
                                         <Button Style="{StaticResource IconButton}" Content="&#xE8EE;" Tag="NTCREPEAT" Click="Command_Click" Margin="16,0,0,0" ToolTip="Повтор" />
                                         <Button Style="{StaticResource IconButton}" Content="&#xE8B1;" Tag="NTCRANDOM" Click="Command_Click" Margin="4,0,0,0" ToolTip="Случайный порядок" />
+                                        <Button Content="MODE" Tag="NTCMODE" Click="Command_Click" Margin="16,0,0,0" Height="36"
+                                                ToolTip="Как кнопка MODE на пульте: показать на экране картинку с ранее выбранного видеовхода, пока звук идёт с NET или Bluetooth. Повторное нажатие возвращает экран воспроизведения." />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
@@ -491,17 +505,33 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition />
                                         <RowDefinition />
+                                        <RowDefinition />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Style="{StaticResource Label}" Text="Предел громкости" />
-                                    <Slider x:Name="MaxVolumeSlider" Grid.Column="1" Minimum="20" Maximum="100" SmallChange="1" LargeChange="5"
-                                            VerticalAlignment="Center" ValueChanged="MaxVolume_Changed" />
-                                    <TextBlock x:Name="MaxVolumeText" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" />
-                                    <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Шаг громкости" Margin="0,10,12,0" />
-                                    <ListBox x:Name="StepBox" Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource Segmented}"
+                                    <TextBlock Style="{StaticResource Label}" Text="Шкала громкости" />
+                                    <ListBox x:Name="ScaleBox" Grid.Column="1" Style="{StaticResource Segmented}"
+                                             DisplayMemberPath="Label" SelectedValuePath="Code" SelectionChanged="Scale_Changed" />
+                                    <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="Предел громкости" Margin="0,10,12,0" />
+                                    <Slider x:Name="MaxVolumeSlider" Grid.Row="1" Grid.Column="1" Margin="0,10,0,0" Minimum="20" Maximum="100"
+                                            SmallChange="1" LargeChange="5" VerticalAlignment="Center" ValueChanged="MaxVolume_Changed"
+                                            ui:SliderPointer.Follow="True" />
+                                    <TextBlock x:Name="MaxVolumeText" Grid.Row="1" Grid.Column="2" Margin="12,10,0,0" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="Шаг громкости" Margin="0,10,12,0" />
+                                    <ListBox x:Name="StepBox" Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" Style="{StaticResource Segmented}"
                                              ItemStringFormat="{}{0:0.#}" SelectionChanged="Step_Changed" />
                                 </Grid>
                                 <TextBlock Style="{StaticResource Dim}" Margin="0,8,0,0"
-                                           Text="Выше предела приложение громкость не поднимет ни ползунком, ни клавишами. Пульт и ручка на ресивере работают как обычно." />
+                                           Text="Шкалу стоит выбрать ту же, что в меню ресивера (Volume Display): по сети эту настройку узнать нельзя. 0 дБ — это 82 по шкале 0–100. Выше предела приложение громкость не поднимет ни ползунком, ни клавишами; пульт и ручка на ресивере работают как обычно." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource CardTitle}" Text="Быстрая панель" />
+                                <ListBox x:Name="FlyoutItemsBox" Style="{StaticResource ChipList}" SelectionMode="Multiple" Margin="0,0,0,-6"
+                                         DisplayMemberPath="Label" SelectionChanged="FlyoutItems_Changed" />
+                                <TextBlock Style="{StaticResource Dim}" Margin="0,8,0,0"
+                                           Text="Что показывать на панели, которая открывается щелчком по значку в трее. Питание, громкость и «без звука» есть на ней всегда." />
                             </StackPanel>
                         </Border>
 

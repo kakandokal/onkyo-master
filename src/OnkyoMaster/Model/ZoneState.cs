@@ -33,8 +33,16 @@ public sealed class ZoneState : ObservableObject
         _sel = sel;
         Volume = new LevelControl(name, vol, 0, 100, 1,
             v => $"{_vol}{(int)Math.Round(v * _scale):X2}",
-            v => v.ToString(_scale > 1 ? "0.0" : "0", CultureInfo.InvariantCulture),
+            v => VolumeScale.Format(v, halfSteps: _scale > 1),
             owner.Send);
+    }
+
+    /// <summary>Re-reads the volume text after the display scale has changed.</summary>
+    internal void RefreshVolumeText()
+    {
+        Volume.RefreshText();
+        // Listeners that show the volume outside of bindings (the tray icon) watch the zone, not the control.
+        Raise(nameof(Volume));
     }
 
     public string Name { get; }

@@ -23,6 +23,7 @@ public partial class App : Application
     private readonly CancellationTokenSource _lifetime = new();
     private Mutex? _mutex;
     private HotkeyManager? _hotkeys;
+    private VolumeCommandCapture? _volumeCommands;
     private TrayIcon? _tray;
     private FlyoutWindow? _flyout;
     private MainWindow? _main;
@@ -35,6 +36,11 @@ public partial class App : Application
 
     /// <summary>Commands whose key combination could not be registered (taken by another program).</summary>
     public HashSet<string> FailedHotkeys { get; } = [];
+
+    /// <summary>The keyboard's volume keys should be captured right now, but Windows would not hand them over.</summary>
+    public bool MediaKeysRefused { get; private set; }
+
+    public event Action? MediaKeysRefusedChanged;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -84,6 +90,9 @@ public partial class App : Application
         }
 
         _hotkeys = new HotkeyManager();
+        _volumeCommands = new VolumeCommandCapture();
+        _volumeCommands.Step += direction => Execute(direction > 0 ? "vol-up" : "vol-down");
+        _volumeCommands.MuteToggled += () => Execute("mute");
         _tray = new TrayIcon(this);
         Receiver.VolumeFeedback += ShowOsd;
         Receiver.PropertyChanged += (_, args) =>
@@ -111,6 +120,7 @@ public partial class App : Application
         SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         SystemEvents.SessionEnding -= OnSessionEnding;
         _tray?.Dispose();
+        _volumeCommands?.Dispose();
         _hotkeys?.Dispose();
         Receiver?.Dispose();
         _mutex?.Dispose();
@@ -152,7 +162,7 @@ public partial class App : Application
     /// <item>show, flyout, exit — the app itself;</item>
     /// <item>power, power-on, power-off, vol-up, vol-down, mute, input:NAME — a zone; the main one,
     /// or Zone 2 / Zone 3 with a "z2-" / "z3-" prefix;</item>
-    /// <item>mode:CODE, bass-up … sub-down, music-optimizer, cinema-filter,
+    /// <item>mode:CODE, bass-up … sub-down, vocal-up, vocal-down, music-optimizer, cinema-filter,
     /// cycle:dimmer|sleep|late-night|hdmi-out — main-zone sound and display;</item>
     /// <item>scene:NAME, raw:ISCP.</item>
     /// </list>
@@ -208,8 +218,8 @@ public partial class App : Application
                 };
                 choice?.Cycle();
                 break;
-            case "bass-up" or "treble-up" or "center-up" or "sub-up" when mainOn: LevelFor(name)?.Nudge(+1); break;
-            case "bass-down" or "treble-down" or "center-down" or "sub-down" when mainOn: LevelFor(name)?.Nudge(-1); break;
+            case "bass-up" or "treble-up" or "center-up" or "sub-up" or "vocal-up" when mainOn: LevelFor(name)?.Nudge(+1); break;
+            case "bass-down" or "treble-down" or "center-down" or "sub-down" or "vocal-down" when mainOn: LevelFor(name)?.Nudge(-1); break;
 
             case "scene":
                 var scene = Settings.Scenes.FirstOrDefault(s => s.Name.Equals(argument, StringComparison.OrdinalIgnoreCase));
@@ -225,6 +235,7 @@ public partial class App : Application
         "treble" => Receiver.Treble,
         "center" => Receiver.CenterLevel,
         "sub" => Receiver.SubwooferLevel,
+        "vocal" => Receiver.Vocal,
         _ => null,
     };
 
@@ -261,20 +272,36 @@ public partial class App : Application
     /// <summary>
     /// The keyboard's volume keys are captured only while the receiver is on;
     /// the rest of the time they keep controlling Windows volume.
+    /// How a key gets to Windows depends on the keyboard and its software, so there are two nets:
+    /// hotkeys for plain key presses, and <see cref="VolumeCommandCapture"/> for volume commands.
     /// </summary>
     private void UpdateMediaKeys()
     {
         if (_hotkeys is null) return;
         var wanted = Settings.MediaKeys && Receiver.IsReady && Receiver.Main.Power;
-        if (wanted == _hotkeys.HasGroup(MediaHotkeys)) return;
+
+        if (wanted) _volumeCommands?.Start();
+        else _volumeCommands?.Stop();
+
+        var refused = MediaKeysRefused;
         if (!wanted)
         {
             _hotkeys.UnregisterGroup(MediaHotkeys);
-            return;
+            refused = false;
         }
-        _hotkeys.Register(MediaHotkeys, "VolumeUp", () => Execute("vol-up"), repeat: true);
-        _hotkeys.Register(MediaHotkeys, "VolumeDown", () => Execute("vol-down"), repeat: true);
-        _hotkeys.Register(MediaHotkeys, "VolumeMute", () => Execute("mute"));
+        else if (!_hotkeys.HasGroup(MediaHotkeys) || refused)
+        {
+            // Also retried after a refusal: the program that held the keys may have let go of them.
+            _hotkeys.UnregisterGroup(MediaHotkeys);
+            var up = _hotkeys.Register(MediaHotkeys, "VolumeUp", () => Execute("vol-up"), repeat: true);
+            var down = _hotkeys.Register(MediaHotkeys, "VolumeDown", () => Execute("vol-down"), repeat: true);
+            var mute = _hotkeys.Register(MediaHotkeys, "VolumeMute", () => Execute("mute"));
+            refused = !(up && down && mute);
+        }
+
+        if (refused == MediaKeysRefused) return;
+        MediaKeysRefused = refused;
+        MediaKeysRefusedChanged?.Invoke();
     }
 
     private void ShowOsd()

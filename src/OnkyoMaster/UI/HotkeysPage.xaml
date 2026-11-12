@@ -55,8 +55,13 @@
                            Foreground="{DynamicResource SystemFillColorCautionBrush}" />
 
                 <Border Style="{StaticResource Card}" Padding="16,10" Margin="0,0,0,10">
-                    <CheckBox x:Name="MediaKeysBox" Click="MediaKeys_Click"
-                              Content="Клавиши громкости на клавиатуре управляют ресивером, пока он включён" />
+                    <StackPanel>
+                        <CheckBox x:Name="MediaKeysBox" Click="MediaKeys_Click"
+                                  Content="Клавиши громкости на клавиатуре управляют ресивером, пока он включён" />
+                        <TextBlock x:Name="MediaKeysNote" Margin="28,2,0,2" TextWrapping="Wrap" Visibility="Collapsed"
+                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                   Text="Перехватить клавиши громкости не удалось: их удерживает другая программа." />
+                    </StackPanel>
                 </Border>
 
                 <ItemsControl x:Name="GroupsList">

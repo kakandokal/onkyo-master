@@ -12,6 +12,7 @@ public sealed record Option(string Code, string Label, string? Short = null)
 public sealed class ChoiceControl(string command, IReadOnlyList<Option> options, Action<string, string?> send) : ObservableObject
 {
     private string? _value;
+    private string? _deviceValue;
 
     /// <summary>The ISCP command name; a value is set by sending Command + option code.</summary>
     public string Command => command;
@@ -47,10 +48,17 @@ public sealed class ChoiceControl(string command, IReadOnlyList<Option> options,
 
     public void Apply(string code)
     {
+        _deviceValue = code;
         if (code == _value) return;
         _value = code;
         Raise(nameof(Value));
         Raise(nameof(Label));
+    }
+
+    /// <summary>The receiver refused the last change ("N/A"): show again what it actually has.</summary>
+    public void Revert()
+    {
+        if (_deviceValue is { } code) Apply(code);
     }
 }
 
@@ -58,6 +66,7 @@ public sealed class ChoiceControl(string command, IReadOnlyList<Option> options,
 public sealed class ToggleControl(string command, Action<string, string?> send) : ObservableObject
 {
     private bool _value;
+    private bool? _deviceValue;
 
     public bool Value
     {
@@ -69,7 +78,17 @@ public sealed class ToggleControl(string command, Action<string, string?> send) 
         }
     }
 
-    public void Apply(string code) => Set(ref _value, code != "00", nameof(Value));
+    public void Apply(string code)
+    {
+        _deviceValue = code != "00";
+        Set(ref _value, code != "00", nameof(Value));
+    }
+
+    /// <summary>The receiver refused the last change ("N/A"): show again what it actually has.</summary>
+    public void Revert()
+    {
+        if (_deviceValue is { } value) Set(ref _value, value, nameof(Value));
+    }
 }
 
 /// <summary>
@@ -88,6 +107,7 @@ public sealed class LevelControl : ObservableObject
     private double _maximum;
     private double _step;
     private double? _heldDeviceValue;
+    private double? _deviceValue;
     private bool _isKnown;
 
     public LevelControl(string title, string coalesceKey, double minimum, double maximum, double step,
@@ -124,6 +144,9 @@ public sealed class LevelControl : ObservableObject
 
     public string Text => _isKnown ? _format(_value) : "—";
 
+    /// <summary>For when the way the value is written out has changed, not the value itself.</summary>
+    public void RefreshText() => Raise(nameof(Text));
+
     public double Value
     {
         get => _value;
@@ -140,11 +163,21 @@ public sealed class LevelControl : ObservableObject
 
     public void ApplyFromDevice(double value)
     {
+        _deviceValue = value;
         if (_hold.IsEnabled)
         {
             _heldDeviceValue = value;
             return;
         }
+        Commit(value);
+    }
+
+    /// <summary>The receiver refused the last change ("N/A"): show again what it actually has.</summary>
+    public void Revert()
+    {
+        if (_deviceValue is not { } value) return;
+        _hold.Stop();
+        _heldDeviceValue = null;
         Commit(value);
     }
 
